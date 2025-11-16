@@ -2,6 +2,7 @@
 import gymnasium as gym
 import ale_py
 gym.register_envs(ale_py)
+import subprocess
 import torch
 import random
 import numpy as np
@@ -268,11 +269,28 @@ def Deep_Q_Learning(env, replay_capacity_N=160_000, nb_epochs=160_000, update_fr
     torch.save(Q_val_of_action.state_dict(), model_path)
     print(f"Model saved to {model_path}")
 
+def getrom():
+    breakout_path = os.path.join(roms_dir, "breakout.bin")
+    if not os.path.exists(breakout_path):
+        # Download and unzip breakout ROM into current dir
+        os.makedirs(roms_dir, exist_ok=True)
+        zip_path = os.path.join(roms_dir, "breakout.zip")
+        subprocess.run(
+            ["wget", "-q", "http://www.atarimania.com/2600/dumps/breakout.zip", "-O", zip_path],
+            check=True
+        )
+        subprocess.run(["unzip", "-q", "-o", zip_path, "-d", roms_dir], check=True)
+        os.remove(zip_path)
 
 if __name__ == "__main__":
+    # Put ROMs in the current working directory
+    roms_dir = os.getcwd()
+    # os.environ["ALE_ROM_DIR"] = roms_dir  # force ALE to look here
+    os.environ["ALE_PY_ROM_DIRECTORY"] = roms_dir  # force ALE-Py to look here
     MODEL_PATH = "dqn_breakout.pth"
     os.makedirs("Imgs", exist_ok=True) 
-    
+
+    getrom()
     env = gym.make("ALE/Breakout-v5", frameskip=1, repeat_action_probability=0.0)
     env = gym.wrappers.RecordEpisodeStatistics(env)
     env = gym.wrappers.ResizeObservation(env, (84, 84))
