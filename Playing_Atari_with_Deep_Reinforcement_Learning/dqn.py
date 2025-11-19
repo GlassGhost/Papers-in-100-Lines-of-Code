@@ -1,4 +1,5 @@
 # https://arxiv.org/pdf/1312.5602
+import pprint
 import gymnasium as gym
 import ale_py
 gym.register_envs(ale_py)
@@ -13,6 +14,18 @@ import matplotlib.pyplot as plt
 from stable_baselines3.common.atari_wrappers import MaxAndSkipEnv
 from stable_baselines3.common.buffers import ReplayBuffer
 import os
+
+# def print_versions():
+#     print("Library Versions:")
+#     print(f"gymnasium[atari]: {gym.__version__}")
+#     print(f"matplotlib: {matplotlib.__version__}")
+#     print(f"numpy: {np.__version__}")
+#     print(f"stable-baselines3: {stable_baselines3.__version__}")
+#     print(f"torch: {torch.__version__}")
+#     # print(f"tqdm: {tqdm_pkg.__version__}")   # <-- fixed
+#     # print(f"tqdm: {tqdm.__version__}")
+#     print(f"ale-py: {ale_py.__version__}")
+#     print(f"opencv-python: {cv2.__version__}")
 
 """
 - `replay_mem_D` -> \(\mathcal{D}\)
@@ -283,14 +296,39 @@ def getrom():
         os.remove(zip_path)
 
 if __name__ == "__main__":
-    # Put ROMs in the current working directory
     roms_dir = os.getcwd()
-    # os.environ["ALE_ROM_DIR"] = roms_dir  # force ALE to look here
-    os.environ["ALE_PY_ROM_DIRECTORY"] = roms_dir  # force ALE-Py to look here
-    MODEL_PATH = "dqn_breakout.pth"
-    os.makedirs("Imgs", exist_ok=True) 
+    print("\n" + f"{roms_dir=}" + "\n")
 
+    # 1. Download the ROM
     getrom()
+
+    # 2. Monkey Patch ale_py to find the ROM in the current directory
+    # This intercepts the function call that is crashing
+    import ale_py.roms
+    
+    # Save original just in case, though we likely won't need it for Breakout
+    original_get_rom_path = ale_py.roms.get_rom_path
+
+    def patched_get_rom_path(game):
+        """Custom ROM finder that looks in the local directory first."""
+        # Create path to local file: ./breakout.bin
+        local_rom_path = os.path.join(os.getcwd(), f"{game}.bin")
+        
+        if os.path.exists(local_rom_path):
+            print(f"Redirecting ALE to local ROM: {local_rom_path}")
+            return local_rom_path
+        
+        # Fallback to default behavior (which checks the Nix store)
+        return original_get_rom_path(game)
+
+    # Apply the patch
+    ale_py.roms.get_rom_path = patched_get_rom_path
+
+    # 3. Setup Environment
+    MODEL_PATH = "dqn_breakout.pth"
+    os.makedirs("Imgs", exist_ok=True)
+
+    # gym.make will now call our patched function, find the local file, and succeed
     env = gym.make("ALE/Breakout-v5", frameskip=1, repeat_action_probability=0.0)
     env = gym.wrappers.RecordEpisodeStatistics(env)
     env = gym.wrappers.ResizeObservation(env, (84, 84))
@@ -298,20 +336,20 @@ if __name__ == "__main__":
     env = gym.wrappers.FrameStackObservation(env, 4)
     env = MaxAndSkipEnv(env, skip=4)
 
-    # device = 'cuda' if torch.cuda.is_available() else 'cpu'
-    if torch.cuda.is_available(): # First check for CUDA
+    # 4. Device selection
+    if torch.cuda.is_available():
         device = torch.device("cuda")
         print("Using CUDA backend for PyTorch.")
-    # If CUDA is not available, check for Vulkan
     elif hasattr(torch.backends, "vulkan") and torch.backends.vulkan.is_available():
         device = torch.device("vulkan")
         print("Using Vulkan backend for PyTorch.")
-    else: # Fallback to CPU
+    else:
         device = torch.device("cpu")
         print("Neither CUDA nor Vulkan available, using CPU.")
 
-    # Pass the model_path to the function
     Deep_Q_Learning(env, device=device, model_path=MODEL_PATH)
     
     env.close()
+
+
     
