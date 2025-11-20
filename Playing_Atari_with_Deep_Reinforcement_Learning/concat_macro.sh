@@ -64,7 +64,7 @@ cd "$owd"
 # Example call: run test.sh inside nix-shell, log to test_output.log
 run_and_log "./test.sh" "$owd/test_output.log" "$owd/devShells.nix"
 
-combine_files concat.md ./requirements.md ./dqn.py ./requirements.txt ./test_output.log ./rocm.nix
+combine_files concat.md ./concat_macro.sh ./devShells.nix ./requirements.md ./requirements.txt ./test_output.log
 
 exit
 

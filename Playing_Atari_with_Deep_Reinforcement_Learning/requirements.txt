@@ -1,4 +1,4 @@
-gymnasium[atari]==1.1.1
+gymnasium[atari]==1.1.0
 matplotlib==3.10.1
 numpy==2.2.5
 stable-baselines3==2.6.0
